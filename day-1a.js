@@ -2012,4 +2012,3 @@ const totalDistance = groupA.reduce((acc, item, index) => acc + getDistance(item
 // }
 
 console.log(totalDistance)
-
