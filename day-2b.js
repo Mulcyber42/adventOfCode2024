@@ -999,24 +999,43 @@ const reportMultilineString = `65 68 71 72 71
 65 63 60 59 57 54 52
 37 34 31 29 27 25 22 19`;
 
-const reportTestArrays = [
-  [7, 6, 4, 2, 1],
-  [1, 2, 7, 8, 9],
-  [9, 7, 6, 2, 1],
-  [1, 3, 2, 4, 5],
-  [8, 6, 4, 4, 1],
-  [1, 3, 6, 7, 9],
-];
-
 const reportArrays = reportMultilineString.split("\n").map((report) => report.split(" ").map((level) => Number(level)));
 
-// 285 too low
-// 292 wrong
-// 361 too high
+const reportTestArrays = [
+  // DECREASING
+  [1, 2, 3, 4, 5], // No Fails
+  [1, 9, 8, 7, 6], // First  Fails
+  [9, 1, 8, 7, 6], // Second Fails
+  [9, 8, 1, 7, 6], // Third Fails
+  [9, 8, 7, 1, 6], // Fourth Fails
+  [9, 8, 7, 6, 1], // Last Fails
+  // INCREASING
+  [9, 1, 2, 3, 4], // First  Fails
+  [1, 9, 2, 3, 4], // Second Fails
+  [1, 2, 9, 3, 4], // Third Fails
+  [1, 2, 3, 9, 4], // Fourth Fails
+  [1, 2, 3, 4, 9], // Last Fails
 
-console.log("\n\n\n");
+  // MISC
+  [1, 9, 9, 2], // STAGNATION
+  [1, 3, 1, 3], // FLUCTUATION
+];
+const test = `7 6 4 2 1
+1 2 7 8 9
+9 7 6 2 1
+1 3 2 4 5
+8 6 4 4 1
+1 3 6 7 9`;
+const testArrays = test.split("\n").map((report) => report.split(" ").map((level) => Number(level)));
+
+// 361 too high
+// 292 wrong
+// 285 too low
+// const safeReports = testArrays.reduce((acc, report) => {
 const safeReports = reportTestArrays.reduce((acc, report) => {
-  console.log("Report ----------", report);
+  // const safeReports = reportArrays.reduce((acc, report) => {
+  // console.log("\n");
+  // console.log("Report ----------", report);
 
   // INCREASE STATUS --------------------
   let isIncreasing;
@@ -1028,8 +1047,9 @@ const safeReports = reportTestArrays.reduce((acc, report) => {
   let status_first_Third_FAILED = isStagnatingOrWrongTempo(report[0], report[2]);
   let status_second_Third_FAILED = isStagnatingOrWrongTempo(report[1], report[2]);
   // CHECK FIRST 3
-  if (status_first_Second_FAILED || status_first_Third_FAILED || status_second_Third_FAILED) return acc;
+  if (status_first_Second_FAILED && status_first_Third_FAILED && status_second_Third_FAILED) return acc;
   // SET INCREASE
+  // isIncreasing = report[0] < report[1];
   if (!status_first_Second_FAILED) {
     isIncreasing = report[0] < report[1];
   } else if (!status_first_Third_FAILED) {
@@ -1037,23 +1057,45 @@ const safeReports = reportTestArrays.reduce((acc, report) => {
   } else if (!status_second_Third_FAILED) {
     isIncreasing = report[1] < report[2];
   }
-  // console.log("First_Second_FAIL", status_first_Second_FAILED, "First_Third_FAIL", status_first_Third_FAILED, "Second_Third_FAIL", status_second_Third_FAILED);
 
-  // LEVEL CHECK --------------------
+  // // LEVEL CHECK --------------------
   const hasUndefined = (levelA, levelB) => typeof levelA === "undefined" || typeof levelB === "undefined";
-  const isFluctating = (levelA, levelB, isIncreasing) => (isIncreasing && levelA > levelB) || (!isIncreasing && levelA < levelB);
-  const isFluctatingOrUndefined = (levelA, levelB) => !isFluctating(levelA, levelB) && !hasUndefined(levelA, levelB);
+  const isFluctating = (levelA, levelB) => (isIncreasing && levelA > levelB) || (!isIncreasing && levelA < levelB);
+  const isFluctatingOrUndefined = (levelA, levelB) => isFluctating(levelA, levelB) || hasUndefined(levelA, levelB);
   const isLevelsOk = (levelA, levelB) => !isStagnatingOrWrongTempo(levelA, levelB) && !isFluctatingOrUndefined(levelA, levelB);
 
-  // CHECK OTHER LOOP --------------------
-  for (let i = 0; i < report.length - 1; i++) {
-    let firstAndSecond = isLevelsOk(report[i], report[i + 1]);
-    if (firstAndSecond) return acc;
-    // let firstAndThird;
-    // let SecondAndThird;
-    let tryNextLevel = true;
-  }
+  const badLevelIndex = (arr) => {
+    for (let i = 0; i < arr.length - 1; i++) {
+      let First_Second_OK = isLevelsOk(report[i], report[i + 1]);
+      let First_Third_OK = isLevelsOk(report[i], report[i + 2]);
+      let Second_Third_OK = isLevelsOk(report[i + 1], report[i + 2]);
 
+      if (!First_Second_OK && !First_Third_OK && !Second_Third_OK) return "AllFailed";
+      if ([First_Second_OK, First_Third_OK, Second_Third_OK].filter((value) => value === false).length >= 2) {
+        if (!First_Second_OK && !First_Third_OK) {
+          return i;
+        }
+        if (!First_Second_OK && !Second_Third_OK) {
+          return i + 1;
+        }
+        if (!First_Third_OK && !Second_Third_OK) {
+          return i + 2;
+        }
+      }
+    }
+  };
+
+  let index = badLevelIndex(report, true);
+  if (index === report.length) return ++acc;
+
+  if (typeof index === "string") return acc;
+  let newReport = [...report];
+  newReport.splice(index, 1);
+  for (let i = 0; i < newReport.length - 1; i++) {
+    console.log();
+    let First_Second_OK = isLevelsOk(newReport[i], newReport[i + 1]);
+    if (!First_Second_OK) return acc;
+  }
   return ++acc;
 }, 0);
 
